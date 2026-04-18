@@ -406,6 +406,15 @@ h2 {
   font-family: "Space Grotesk", sans-serif;
   letter-spacing: 0.14em;
   text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.log-level-emoji {
+  letter-spacing: normal;
+  font-size: 1rem;
+  line-height: 1;
 }
 
 .log-card pre {

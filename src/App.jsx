@@ -405,7 +405,8 @@ function App() {
                   >
                     <div className="log-card-head">
                       <span className={`log-level ${entry.level.toLowerCase()}`}>
-                        {formatLogLevel(entry.level)}
+                        <span className="log-level-emoji">{entry.emoji || "📝"}</span>
+                        <span>{formatLogLevel(entry.level)}</span>
                       </span>
                       <time>{`${entry.timestamp} ${entry.timezone}`}</time>
                     </div>
