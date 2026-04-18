@@ -374,10 +374,9 @@ h2 {
 }
 
 .log-stream {
-  max-height: 620px;
-  overflow: auto;
-  padding-right: 4px;
-  overscroll-behavior: contain;
+  max-height: none;
+  overflow: visible;
+  padding-right: 0;
 }
 
 .log-card {
@@ -605,10 +604,6 @@ h2 {
   .chip {
     flex-direction: column;
     align-items: flex-start;
-  }
-
-  .log-stream {
-    max-height: none;
   }
 
   .orb {
