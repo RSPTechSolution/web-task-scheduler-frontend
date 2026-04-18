@@ -1,7 +1,7 @@
 import { useDeferredValue, useEffect, useMemo, useState, startTransition } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const dashboardCards = [
   { key: "scheduler", label: "Scheduler State", accent: "mint" },

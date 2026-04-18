@@ -18,6 +18,10 @@
   box-sizing: border-box;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
 html,
 body,
 #root {
@@ -43,7 +47,7 @@ input {
 .screen {
   position: relative;
   min-height: 100vh;
-  overflow: hidden;
+  overflow-x: hidden;
 }
 
 .dashboard,
@@ -119,6 +123,7 @@ input {
   display: grid;
   grid-template-columns: 1.3fr 0.8fr;
   gap: 18px;
+  align-items: start;
 }
 
 .micro-label {
@@ -141,6 +146,7 @@ h1 {
   font-size: clamp(2.2rem, 5vw, 4.8rem);
   line-height: 0.98;
   max-width: 12ch;
+  text-wrap: balance;
 }
 
 h2 {
@@ -158,6 +164,7 @@ h2 {
 .lead {
   max-width: 60ch;
   line-height: 1.65;
+  text-wrap: pretty;
 }
 
 .hero-actions {
@@ -166,6 +173,7 @@ h2 {
   align-content: start;
   justify-content: flex-end;
   gap: 12px;
+  min-width: 0;
 }
 
 .primary-button,
@@ -178,6 +186,7 @@ h2 {
   cursor: pointer;
   font-weight: 800;
   transition: transform 180ms ease, box-shadow 180ms ease, opacity 180ms ease;
+  max-width: 100%;
 }
 
 .primary-button:hover,
@@ -236,6 +245,9 @@ h2 {
   display: inline-block;
   margin: 10px 0 8px;
   font-size: 1.55rem;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  line-height: 1.2;
 }
 
 .stat-card.mint strong,
@@ -272,6 +284,7 @@ h2 {
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 18px;
+  flex-wrap: wrap;
 }
 
 .beacon {
@@ -304,6 +317,7 @@ h2 {
   justify-content: space-between;
   gap: 16px;
   padding: 16px 18px;
+  align-items: flex-start;
 }
 
 .timeline-item strong,
@@ -312,10 +326,20 @@ h2 {
   display: block;
 }
 
+.timeline-item strong,
+.timeline-item span,
+.timeline-item time,
+.chip span,
+.log-card time,
+.log-card pre {
+  overflow-wrap: anywhere;
+}
+
 .calendar-controls {
   display: flex;
   gap: 12px;
   margin: 18px 0;
+  align-items: stretch;
 }
 
 .calendar-controls input,
@@ -337,6 +361,8 @@ h2 {
   padding: 14px 16px;
   color: var(--text);
   background: rgba(255, 143, 153, 0.08);
+  gap: 12px;
+  text-align: left;
 }
 
 .chips button {
@@ -351,6 +377,7 @@ h2 {
   max-height: 620px;
   overflow: auto;
   padding-right: 4px;
+  overscroll-behavior: contain;
 }
 
 .log-card {
@@ -416,6 +443,10 @@ h2 {
   margin-top: 22px;
 }
 
+.login-form input {
+  width: 100%;
+}
+
 .login-form label {
   color: var(--muted);
 }
@@ -458,11 +489,67 @@ h2 {
   .hero-actions {
     justify-content: flex-start;
   }
+
+  .hero-panel {
+    gap: 24px;
+  }
+}
+
+@media (max-width: 820px) {
+  .dashboard {
+    width: min(100% - 22px, 1240px);
+    padding: 18px 0 28px;
+    gap: 18px;
+  }
+
+  .hero-panel,
+  .stat-card,
+  .panel,
+  .login-card,
+  .loading-shell {
+    padding: 22px;
+    border-radius: 26px;
+  }
+
+  h1 {
+    font-size: clamp(2rem, 10vw, 3.25rem);
+    max-width: none;
+  }
+
+  h2 {
+    font-size: 1.3rem;
+  }
+
+  .lead {
+    font-size: 0.98rem;
+  }
+
+  .hero-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .hero-actions .ghost-button {
+    grid-column: 1 / -1;
+  }
+
+  .timeline-item,
+  .log-card-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .log-search {
+    width: 100%;
+  }
 }
 
 @media (max-width: 640px) {
   .dashboard {
-    width: min(100% - 18px, 1240px);
+    width: min(100% - 16px, 1240px);
+    padding: 14px 0 22px;
+    gap: 14px;
   }
 
   .hero-panel,
@@ -474,6 +561,25 @@ h2 {
     border-radius: 24px;
   }
 
+  .micro-label {
+    font-size: 0.68rem;
+    letter-spacing: 0.16em;
+  }
+
+  h1 {
+    font-size: clamp(1.8rem, 11vw, 2.8rem);
+    line-height: 1.02;
+  }
+
+  .lead,
+  .panel-copy,
+  .stat-card p,
+  .timeline-item span,
+  .timeline-item time,
+  .log-card pre {
+    font-size: 0.92rem;
+  }
+
   .calendar-controls,
   .log-card-head,
   .timeline-item {
@@ -483,11 +589,66 @@ h2 {
 
   .hero-actions {
     width: 100%;
+    grid-template-columns: 1fr;
   }
 
   .primary-button,
   .secondary-button,
   .ghost-button {
     width: 100%;
+  }
+
+  .calendar-controls .secondary-button {
+    width: 100%;
+  }
+
+  .chip {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .log-stream {
+    max-height: none;
+  }
+
+  .orb {
+    filter: blur(54px);
+    opacity: 0.4;
+  }
+}
+
+@media (max-width: 420px) {
+  .dashboard {
+    width: min(100% - 12px, 1240px);
+  }
+
+  .hero-panel,
+  .stat-card,
+  .panel,
+  .login-card,
+  .loading-shell {
+    padding: 16px;
+    border-radius: 20px;
+  }
+
+  .primary-button,
+  .secondary-button,
+  .ghost-button,
+  .calendar-controls input,
+  .log-search,
+  .login-form input {
+    min-height: 48px;
+    padding-inline: 14px;
+  }
+
+  .stat-card strong {
+    font-size: 1.25rem;
+  }
+
+  .timeline-item,
+  .chip,
+  .log-card,
+  .empty-state {
+    border-radius: 16px;
   }
 }
