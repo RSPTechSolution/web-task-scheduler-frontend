@@ -1,207 +1,410 @@
-import { useDeferredValue, useEffect, useMemo, useState, startTransition } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import React, { useState, useEffect, useMemo, startTransition } from 'react';
+import { BrowserRouter as Router, Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import './styles.css';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 
-const dashboardCards = [
-  { key: "scheduler", label: "Scheduler State", accent: "mint" },
-  { key: "clock", label: "Indian Time", accent: "gold" },
-  { key: "blocked", label: "Blocked Dates", accent: "blue" },
-];
-
-async function api(path, options = {}) {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers || {}),
-    },
+const api = async (endpoint, options = {}) => {
+  const res = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+    credentials: 'include',
   });
-
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(payload.error || "Request failed.");
+  if (!res.ok) {
+    if (res.status === 401) return { authenticated: false, error: 'Unauthorized' };
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Request failed');
   }
-  return payload;
+  return res.json();
+};
+
+// --- Components ---
+
+function Header({ snapshot, handleLogout }) {
+  const location = useLocation();
+  const isLogsPage = location.pathname === '/logs';
+
+  return (
+    <header className="dashboard-header">
+      <div className="header-brand">
+        <span className="micro-label">Automation Hub</span>
+        <h1>Control Panel</h1>
+      </div>
+      <nav className="header-nav">
+        <Link to="/" className={`nav-link ${!isLogsPage ? 'active' : ''}`}>Dashboard</Link>
+        <Link to="/logs" className={`nav-link ${isLogsPage ? 'active' : ''}`}>Activity Logs</Link>
+      </nav>
+      <div className="header-meta">
+        <div className="refresh-status">
+          <span>IST</span>
+          <strong>{snapshot?.now ? snapshot.now.split(' ').slice(1).join(' ') : '--:--:--'}</strong>
+        </div>
+        <button className="logout-icon-button" onClick={handleLogout} title="Logout">
+          🚪
+        </button>
+      </div>
+    </header>
+  );
 }
 
-function formatLogLevel(level) {
-  return level.charAt(0) + level.slice(1).toLowerCase();
+function Dashboard({ snapshot, busyAction, handleRunNow, handleTogglePause, handleBlockDate, handleRemoveBlockedDate, selectedDate, setSelectedDate }) {
+  return (
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+      <section className="hero-panel-new">
+        <div className="hero-status">
+          <div className={`status-indicator ${snapshot.paused ? 'paused' : 'active'}`}>
+            <div className="dot" />
+            <span>Scheduler is {snapshot.paused ? 'Paused' : 'Active'}</span>
+          </div>
+          <h2>Ready for Next Task</h2>
+          <p>All automated jobs are synchronized with Asia/Kolkata timezone. Blocked dates will be automatically skipped.</p>
+        </div>
+        <div className="hero-actions-grid">
+          <button className="action-card run-now" onClick={handleRunNow} disabled={busyAction === "run"}>
+            <span className="icon">🚀</span>
+            <div className="label">
+              <strong>Run Now</strong>
+              <span>Trigger immediate task</span>
+            </div>
+          </button>
+          <button className="action-card toggle-pause" onClick={handleTogglePause} disabled={busyAction === "pause"}>
+            <span className="icon">{snapshot.paused ? '▶️' : '⏸️'}</span>
+            <div className="label">
+              <strong>{snapshot.paused ? 'Resume' : 'Pause'}</strong>
+              <span>Scheduler control</span>
+            </div>
+          </button>
+        </div>
+      </section>
+
+      <section className="stats-grid-new">
+        <div className="stat-item">
+          <span className="label">Current Date</span>
+          <strong className="value">{snapshot.today}</strong>
+          <span className="sub">Date in India</span>
+        </div>
+        <div className="stat-item">
+          <span className="label">Active Rules</span>
+          <strong className="value">Mon - Fri</strong>
+          <span className="sub">Weekly Schedule</span>
+        </div>
+        <div className="stat-item">
+          <span className="label">Blocked Days</span>
+          <strong className="value">{snapshot.blocked_dates?.length || 0}</strong>
+          <span className="sub">Upcoming exceptions</span>
+        </div>
+      </section>
+
+      <div className="dashboard-layout">
+        <div className="main-content">
+          <section className="panel-section">
+            <div className="section-header">
+              <h2>Upcoming Schedules</h2>
+              <span className="badge">Next 24h</span>
+            </div>
+            <div className="schedule-list">
+              {snapshot.next_runs?.length > 0 ? snapshot.next_runs.map((run) => (
+                <div className="schedule-item" key={run.id}>
+                  <div className="item-info">
+                    <span className="job-name">{run.name}</span>
+                    <span className="job-id">{run.id}</span>
+                  </div>
+                  <div className="item-time">
+                    <strong>{run.next_run}</strong>
+                  </div>
+                </div>
+              )) : (
+                <div className="empty-state">No upcoming runs scheduled.</div>
+              )}
+            </div>
+          </section>
+
+          <section className="panel-section">
+            <div className="section-header">
+              <h2>Previous Results</h2>
+              <span className="badge gray">Execution History</span>
+            </div>
+            <div className="history-list">
+              {snapshot.history?.length > 0 ? snapshot.history.map((entry, i) => (
+                <div className={`history-item ${entry.status.toLowerCase()}`} key={i}>
+                  <div className="history-info">
+                    <div className="history-main">
+                      <span className={`status-pill ${entry.status.toLowerCase()}`}>
+                        {entry.status === 'Success' ? '✅' : entry.status === 'Skipped' ? '⏭️' : '❌'} {entry.status}
+                      </span>
+                      <strong>{entry.job_name}</strong>
+                    </div>
+                    <span className="history-msg">{entry.message}</span>
+                  </div>
+                  <time className="history-time">{entry.timestamp}</time>
+                </div>
+              )) : (
+                <div className="empty-state">No execution history found yet.</div>
+              )}
+            </div>
+          </section>
+        </div>
+
+        <aside className="side-content">
+          <section className="panel-section">
+            <div className="section-header">
+              <h2>Block Calendar</h2>
+            </div>
+            <div className="calendar-block">
+              <input
+                type="date"
+                value={selectedDate}
+                min={snapshot.today}
+                onChange={(event) => setSelectedDate(event.target.value)}
+                className="modern-date-input"
+              />
+              <button className="add-block-button" onClick={handleBlockDate} disabled={busyAction === "block" || !selectedDate}>
+                {busyAction === "block" ? "Processing..." : "Add to Blocklist"}
+              </button>
+            </div>
+            <div className="blocked-list">
+              <AnimatePresence>
+                {snapshot.blocked_dates?.map((date) => (
+                  <motion.div
+                    key={date}
+                    initial={{ opacity: 0, x: 10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -10 }}
+                    className="blocked-date-tag"
+                  >
+                    <span>{date}</span>
+                    <button onClick={() => handleRemoveBlockedDate(date)} disabled={busyAction === date}>
+                      ✕
+                    </button>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
+          </section>
+        </aside>
+      </div>
+    </motion.div>
+  );
 }
 
-function App() {
-  const [authenticated, setAuthenticated] = useState(false);
-  const [password, setPassword] = useState("");
-  const [authError, setAuthError] = useState("");
-  const [snapshot, setSnapshot] = useState(null);
+function LogsPage({ logs }) {
+  const [query, setQuery] = useState('');
+  const filtered = useMemo(() => {
+    if (!query) return logs;
+    return logs.filter(l => l.message.toLowerCase().includes(query.toLowerCase()) || l.level.toLowerCase().includes(query.toLowerCase()));
+  }, [logs, query]);
+
+  return (
+    <motion.div className="logs-page" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+      <section className="panel-section full-logs">
+        <div className="section-header">
+          <h2>Detailed Activity Logs</h2>
+          <input
+            className="modern-search-input"
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Filter logs (e.g. success, error, login)..."
+          />
+        </div>
+        <div className="big-log-stream">
+          {filtered.length > 0 ? [...filtered].reverse().map((entry, i) => (
+            <div key={i} className={`log-card-new ${entry.level.toLowerCase()}`}>
+              <div className="log-card-header">
+                <span className="log-icon">{entry.emoji || '📝'}</span>
+                <span className={`log-level-badge ${entry.level.toLowerCase()}`}>{entry.level}</span>
+                <span className="log-timestamp">{entry.timestamp}</span>
+              </div>
+              <div className="log-card-body">
+                {entry.message}
+              </div>
+            </div>
+          )) : (
+            <div className="empty-state">No matching logs found.</div>
+          )}
+        </div>
+      </section>
+    </motion.div>
+  );
+}
+
+// --- Main App ---
+
+function AppContent() {
+  const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem('auth_hint') === 'true');
+  const [isLoading, setIsLoading] = useState(true);
+  const [snapshot, setSnapshot] = useState({});
   const [logs, setLogs] = useState([]);
-  const [logQuery, setLogQuery] = useState("");
-  const [selectedDate, setSelectedDate] = useState("");
-  const [busyAction, setBusyAction] = useState("");
-  const [lastRefreshed, setLastRefreshed] = useState("");
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [busyAction, setBusyAction] = useState(null);
+  const [selectedDate, setSelectedDate] = useState('');
 
-  const deferredLogQuery = useDeferredValue(logQuery);
+  const navigate = useNavigate();
 
-  const filteredLogs = useMemo(() => {
-    if (!deferredLogQuery.trim()) {
-      return logs;
-    }
-    const query = deferredLogQuery.toLowerCase();
-    return logs.filter((entry) => entry.human.toLowerCase().includes(query));
-  }, [logs, deferredLogQuery]);
-
-  async function refreshDashboard(showLoading = false) {
+  const checkSession = async () => {
     try {
-      const [dashboardPayload, logsPayload] = await Promise.all([
-        api("/api/dashboard"),
-        api("/api/logs"),
-      ]);
-      
+      const data = await api('/api/auth/session');
+      if (data.authenticated) {
+        setIsLoggedIn(true);
+        localStorage.setItem('auth_hint', 'true');
+      } else {
+        setIsLoggedIn(false);
+        localStorage.removeItem('auth_hint');
+      }
+    } catch (err) {
+      console.error('Session check failed', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchDashboard = async () => {
+    try {
+      const data = await api('/api/dashboard');
+      if (data.authenticated === false) {
+          setIsLoggedIn(false);
+          return;
+      }
       startTransition(() => {
-        setSnapshot(dashboardPayload);
-        setLogs(logsPayload.entries || []);
-        setLastRefreshed(new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' }));
+        setSnapshot(data);
       });
     } catch (err) {
-      console.error("Refresh failed:", err);
+      console.error('Fetch failed', err);
     }
-  }
+  };
+
+  const fetchLogs = async () => {
+    try {
+      const data = await api('/api/logs');
+      if (data.authenticated === false) return;
+      setLogs(data.entries || []);
+    } catch (err) {
+      console.error('Logs fetch failed', err);
+    }
+  };
 
   useEffect(() => {
-    if (!authenticated) return;
-    
-    refreshDashboard();
-    const timerId = window.setInterval(() => {
-      refreshDashboard();
-    }, 10000); // 10s refresh is enough and less laggy
+    checkSession();
+  }, []);
 
-    return () => window.clearInterval(timerId);
-  }, [authenticated]);
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    fetchDashboard();
+    fetchLogs();
+    const timer = setInterval(() => {
+      fetchDashboard();
+      fetchLogs();
+    }, 10000);
+    return () => clearInterval(timer);
+  }, [isLoggedIn]);
 
-  async function handleLogin(event) {
-    event.preventDefault();
-    setBusyAction("login");
-    setAuthError("");
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setError('');
     try {
-      await api("/api/auth/login", {
-        method: "POST",
+      const data = await api('/api/auth/login', {
+        method: 'POST',
         body: JSON.stringify({ password }),
       });
-      setAuthenticated(true);
-      setPassword("");
-    } catch (error) {
-      setAuthError(error.message);
-    } finally {
-      setBusyAction("");
+      if (data.ok) {
+        setIsLoggedIn(true);
+        localStorage.setItem('auth_hint', 'true');
+        navigate('/');
+      }
+    } catch (err) {
+      setError(err.message);
     }
-  }
+  };
 
-  async function handleLogout() {
-    setBusyAction("logout");
+  const handleLogout = async () => {
     try {
-      await api("/api/auth/logout", { method: "POST" });
+      await api('/api/auth/logout', { method: 'POST' });
     } finally {
-      setAuthenticated(false);
-      setSnapshot(null);
-      setLogs([]);
-      setBusyAction("");
+      setIsLoggedIn(false);
+      localStorage.removeItem('auth_hint');
+      navigate('/');
     }
-  }
+  };
 
-  async function handleRunNow() {
+  const handleRunNow = async () => {
     setBusyAction("run");
     try {
-      await api("/api/run", { method: "POST" });
-      setTimeout(() => refreshDashboard(), 2000);
+      await api('/api/run', { method: 'POST' });
+      fetchDashboard();
     } finally {
-      setBusyAction("");
+      setTimeout(() => setBusyAction(null), 1000);
     }
-  }
+  };
 
-  async function handleTogglePause() {
+  const handleTogglePause = async () => {
     setBusyAction("pause");
     try {
-      const payload = await api("/api/pause", { method: "POST" });
-      setSnapshot(prev => ({ ...prev, ...payload }));
+      const data = await api('/api/pause', { method: 'POST' });
+      setSnapshot(data);
     } finally {
-      setBusyAction("");
+      setBusyAction(null);
     }
-  }
+  };
 
-  async function handleBlockDate() {
+  const handleBlockDate = async () => {
     if (!selectedDate) return;
     setBusyAction("block");
     try {
-      const payload = await api("/api/blocked-dates", {
-        method: "POST",
+      const data = await api('/api/blocked-dates', {
+        method: 'POST',
         body: JSON.stringify({ date: selectedDate }),
       });
-      setSnapshot(prev => ({ ...prev, ...payload }));
-      setSelectedDate("");
+      setSnapshot(data);
+      setSelectedDate('');
     } finally {
-      setBusyAction("");
+      setBusyAction(null);
     }
-  }
+  };
 
-  async function handleRemoveBlockedDate(date) {
+  const handleRemoveBlockedDate = async (date) => {
     setBusyAction(date);
     try {
-      const payload = await api(`/api/blocked-dates/${date}`, {
-        method: "DELETE",
-      });
-      setSnapshot(prev => ({ ...prev, ...payload }));
+      const data = await api(`/api/blocked-dates/${date}`, { method: 'DELETE' });
+      setSnapshot(data);
     } finally {
-      setBusyAction("");
+      setBusyAction(null);
     }
-  }
+  };
 
-  if (!authenticated) {
+  if (isLoading) {
     return (
-      <div className="screen login-screen">
-        <BackgroundOrbs />
-        <motion.section
-          className="login-card"
-          initial={{ opacity: 0, y: 32 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, ease: "easeOut" }}
-        >
-          <span className="micro-label">Security Gateway</span>
-          <h1>Attendance Dashboard</h1>
-          <p className="lead">
-            Access your automated attendance control center. Secure, real-time, and synchronized with Indian Standard Time.
-          </p>
-          <form onSubmit={handleLogin} className="login-form">
-            <label htmlFor="password">Master Password</label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder="••••••••"
-              autoComplete="current-password"
-            />
-            {authError ? <div className="notice error">{authError}</div> : null}
-            <button type="submit" className="primary-button" disabled={busyAction === "login"}>
-              {busyAction === "login" ? "Authenticating..." : "Unlock Access"}
-            </button>
-          </form>
-        </motion.section>
+      <div className="loading-screen">
+        <div className="loader"></div>
       </div>
     );
   }
 
-  if (!snapshot) {
+  if (!isLoggedIn) {
     return (
-      <div className="screen loading-screen">
+      <div className="login-screen">
         <BackgroundOrbs />
-        <motion.div
-          className="loading-shell"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.4 }}
-        >
-          Initializing Secure Session...
+        <motion.div className="login-card" initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
+          <h1>System Login</h1>
+          <p className="lead">Attendance Automation Dashboard</p>
+          <form className="login-form" onSubmit={handleLogin}>
+            <div className="field">
+              <label>Master Password</label>
+              <input
+                type="password"
+                placeholder="Enter password..."
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoFocus
+              />
+            </div>
+            {error && <div className="notice error">{error}</div>}
+            <button className="primary-button" type="submit">Unlock System</button>
+          </form>
         </motion.div>
       </div>
     );
@@ -211,181 +414,35 @@ function App() {
     <div className="screen">
       <BackgroundOrbs />
       <main className="dashboard">
-        <header className="dashboard-header">
-          <div className="header-brand">
-            <span className="micro-label">Automation Hub</span>
-            <h1>Control Panel</h1>
-          </div>
-          <div className="header-meta">
-            <div className="refresh-status">
-              <span>IST</span>
-              <strong>{snapshot.now.split(' ').slice(1).join(' ')}</strong>
-            </div>
-            <button className="logout-icon-button" onClick={handleLogout} title="Logout">
-              🚪
-            </button>
-          </div>
-        </header>
-
-        <section className="hero-panel-new">
-          <div className="hero-status">
-             <div className={`status-indicator ${snapshot.paused ? 'paused' : 'active'}`}>
-                <div className="dot" />
-                <span>Scheduler is {snapshot.paused ? 'Paused' : 'Active'}</span>
-             </div>
-             <h2>Ready for Next Task</h2>
-             <p>All automated jobs are synchronized with Asia/Kolkata timezone. Blocked dates will be automatically skipped.</p>
-          </div>
-          <div className="hero-actions-grid">
-            <button className="action-card run-now" onClick={handleRunNow} disabled={busyAction === "run"}>
-              <span className="icon">🚀</span>
-              <div className="label">
-                <strong>Run Now</strong>
-                <span>Trigger immediate task</span>
-              </div>
-            </button>
-            <button className="action-card toggle-pause" onClick={handleTogglePause} disabled={busyAction === "pause"}>
-              <span className="icon">{snapshot.paused ? '▶️' : '⏸️'}</span>
-              <div className="label">
-                <strong>{snapshot.paused ? 'Resume' : 'Pause'}</strong>
-                <span>Scheduler control</span>
-              </div>
-            </button>
-          </div>
-        </section>
-
-        <section className="stats-grid-new">
-          <div className="stat-item">
-            <span className="label">Current Date</span>
-            <strong className="value">{snapshot.today}</strong>
-            <span className="sub">Date in India</span>
-          </div>
-          <div className="stat-item">
-            <span className="label">Active Rules</span>
-            <strong className="value">Mon - Fri</strong>
-            <span className="sub">Weekly Schedule</span>
-          </div>
-          <div className="stat-item">
-            <span className="label">Blocked Days</span>
-            <strong className="value">{snapshot.blocked_dates.length}</strong>
-            <span className="sub">Upcoming exceptions</span>
-          </div>
-        </section>
-
-        <div className="dashboard-layout">
-          <div className="main-content">
-            <section className="panel-section">
-              <div className="section-header">
-                <h2>Upcoming Schedules</h2>
-                <span className="badge">Next 24h</span>
-              </div>
-              <div className="schedule-list">
-                {snapshot.next_runs.length > 0 ? snapshot.next_runs.map((run) => (
-                  <div className="schedule-item" key={run.job_id}>
-                    <div className="item-info">
-                      <span className="job-name">{run.name}</span>
-                      <span className="job-id">{run.job_id}</span>
-                    </div>
-                    <div className="item-time">
-                      <strong>{run.next_run}</strong>
-                    </div>
-                  </div>
-                )) : (
-                  <div className="empty-state">No upcoming runs scheduled.</div>
-                )}
-              </div>
-            </section>
-
-            <section className="panel-section">
-              <div className="section-header">
-                <h2>Previous Results</h2>
-                <span className="badge gray">Execution History</span>
-              </div>
-              <div className="history-list">
-                {snapshot.history && snapshot.history.length > 0 ? snapshot.history.map((entry, i) => (
-                  <div className={`history-item ${entry.status.toLowerCase()}`} key={i}>
-                    <div className="history-info">
-                      <div className="history-main">
-                        <span className={`status-pill ${entry.status.toLowerCase()}`}>
-                          {entry.status === 'Success' ? '✅' : entry.status === 'Skipped' ? '⏭️' : '❌'} {entry.status}
-                        </span>
-                        <strong>{entry.job_name}</strong>
-                      </div>
-                      <span className="history-msg">{entry.message}</span>
-                    </div>
-                    <time className="history-time">{entry.timestamp}</time>
-                  </div>
-                )) : (
-                   <div className="empty-state">No execution history found yet.</div>
-                )}
-              </div>
-            </section>
-          </div>
-
-          <aside className="side-content">
-            <section className="panel-section">
-              <div className="section-header">
-                <h2>Block Calendar</h2>
-              </div>
-              <div className="calendar-block">
-                <input
-                  type="date"
-                  value={selectedDate}
-                  min={snapshot.today}
-                  onChange={(event) => setSelectedDate(event.target.value)}
-                  className="modern-date-input"
-                />
-                <button className="add-block-button" onClick={handleBlockDate} disabled={busyAction === "block" || !selectedDate}>
-                  {busyAction === "block" ? "Processing..." : "Add to Blocklist"}
-                </button>
-              </div>
-              <div className="blocked-list">
-                <AnimatePresence>
-                  {snapshot.blocked_dates.map((date) => (
-                    <motion.div
-                      key={date}
-                      initial={{ opacity: 0, x: 10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -10 }}
-                      className="blocked-date-tag"
-                    >
-                      <span>{date}</span>
-                      <button onClick={() => handleRemoveBlockedDate(date)} disabled={busyAction === date}>
-                        ✕
-                      </button>
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-              </div>
-            </section>
-
-            <section className="panel-section logs-section">
-              <div className="section-header">
-                <h2>Activity Logs</h2>
-              </div>
-              <input
-                className="modern-search-input"
-                type="search"
-                value={logQuery}
-                onChange={(event) => setLogQuery(event.target.value)}
-                placeholder="Search logs..."
+        <Header snapshot={snapshot} handleLogout={handleLogout} />
+        
+        <AnimatePresence mode="wait">
+          <Routes>
+            <Route path="/" element={
+              <Dashboard 
+                snapshot={snapshot}
+                busyAction={busyAction}
+                handleRunNow={handleRunNow}
+                handleTogglePause={handleTogglePause}
+                handleBlockDate={handleBlockDate}
+                handleRemoveBlockedDate={handleRemoveBlockedDate}
+                selectedDate={selectedDate}
+                setSelectedDate={setSelectedDate}
               />
-              <div className="mini-log-stream">
-                {filteredLogs.slice().reverse().slice(0, 15).map((entry, i) => (
-                  <div key={i} className={`mini-log-item ${entry.level.toLowerCase()}`}>
-                    <div className="log-header">
-                       <span className="log-icon">{entry.emoji || '📝'}</span>
-                       <span className="log-time">{entry.timestamp.split(' ')[1]}</span>
-                    </div>
-                    <span className="log-msg">{entry.message}</span>
-                  </div>
-                ))}
-              </div>
-            </section>
-          </aside>
-        </div>
+            } />
+            <Route path="/logs" element={<LogsPage logs={logs} />} />
+          </Routes>
+        </AnimatePresence>
       </main>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <Router>
+      <AppContent />
+    </Router>
   );
 }
 
@@ -398,5 +455,3 @@ function BackgroundOrbs() {
     </div>
   );
 }
-
-export default App;

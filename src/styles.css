@@ -480,15 +480,109 @@ body {
   border-radius: 12px;
 }
 
+/* Navigation */
+.header-nav {
+  display: flex;
+  gap: 30px;
+}
+
+.nav-link {
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  transition: 0.2s;
+  padding: 8px 0;
+  border-bottom: 2px solid transparent;
+}
+
+.nav-link:hover {
+  color: var(--primary);
+}
+
+.nav-link.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+/* Big Logs Page */
+.full-logs {
+  width: 100%;
+}
+
+.big-log-stream {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.log-card-new {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.log-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--font-mono);
+}
+
+.log-level-badge {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.log-level-badge.info { background: rgba(77, 225, 255, 0.1); color: var(--primary); }
+.log-level-badge.warning { background: rgba(255, 184, 108, 0.1); color: var(--warning); }
+.log-level-badge.error { background: rgba(255, 92, 119, 0.1); color: var(--danger); }
+
+.log-timestamp {
+  color: var(--text-muted);
+  font-size: 12px;
+  margin-left: auto;
+}
+
+.log-card-body {
+  font-size: 14px;
+  color: #fff;
+  line-height: 1.6;
+}
+
+/* Loader */
+.loading-screen {
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.loader {
+  width: 40px;
+  height: 40px;
+  border: 4px solid var(--surface);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 1s infinite linear;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 /* Responsive */
 @media (max-width: 900px) {
   .hero-panel-new { grid-template-columns: 1fr; }
   .dashboard-layout { grid-template-columns: 1fr; }
   .side-content { flex-direction: column; }
-}
-
-@media (max-width: 600px) {
-  .hero-actions-grid { grid-template-columns: 1fr; }
-  .dashboard-header { flex-direction: column; align-items: flex-start; gap: 20px; }
-  .header-meta { width: 100%; justify-content: space-between; }
+  .header-nav { display: none; } /* On mobile, hide nav or use hamburger */
 }
