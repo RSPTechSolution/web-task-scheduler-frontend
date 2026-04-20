@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Link, useNavigate, useLocation 
 import { motion, AnimatePresence } from 'framer-motion';
 import './styles.css';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const api = async (endpoint, options = {}) => {
   const res = await fetch(`${API_BASE_URL}${endpoint}`, {
