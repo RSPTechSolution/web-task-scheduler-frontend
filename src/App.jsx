@@ -306,7 +306,9 @@ function App() {
                   <div className={`history-item ${entry.status.toLowerCase()}`} key={i}>
                     <div className="history-info">
                       <div className="history-main">
-                        <span className={`status-pill ${entry.status.toLowerCase()}`}>{entry.status}</span>
+                        <span className={`status-pill ${entry.status.toLowerCase()}`}>
+                          {entry.status === 'Success' ? '✅' : entry.status === 'Skipped' ? '⏭️' : '❌'} {entry.status}
+                        </span>
                         <strong>{entry.job_name}</strong>
                       </div>
                       <span className="history-msg">{entry.message}</span>
@@ -371,7 +373,10 @@ function App() {
               <div className="mini-log-stream">
                 {filteredLogs.slice().reverse().slice(0, 15).map((entry, i) => (
                   <div key={i} className={`mini-log-item ${entry.level.toLowerCase()}`}>
-                    <span className="log-time">{entry.timestamp.split(' ')[1]}</span>
+                    <div className="log-header">
+                       <span className="log-icon">{entry.emoji || '📝'}</span>
+                       <span className="log-time">{entry.timestamp.split(' ')[1]}</span>
+                    </div>
                     <span className="log-msg">{entry.message}</span>
                   </div>
                 ))}
