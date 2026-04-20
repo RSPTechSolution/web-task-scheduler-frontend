@@ -35,8 +35,14 @@ function Header({ snapshot, handleLogout }) {
         <h1>Control Panel</h1>
       </div>
       <nav className="header-nav">
-        <Link to="/" className={`nav-link ${!isLogsPage ? 'active' : ''}`}>Dashboard</Link>
-        <Link to="/logs" className={`nav-link ${isLogsPage ? 'active' : ''}`}>Activity Logs</Link>
+        <Link to="/" className={`nav-link ${!isLogsPage ? 'active' : ''}`}>
+          <span className="nav-icon">🏠</span>
+          <span>Dashboard</span>
+        </Link>
+        <Link to="/logs" className={`nav-link ${isLogsPage ? 'active' : ''}`}>
+          <span className="nav-icon">📋</span>
+          <span>Activity Logs</span>
+        </Link>
       </nav>
       <div className="header-meta">
         <div className="refresh-status">
